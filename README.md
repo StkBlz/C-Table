@@ -1,2 +1,2 @@
-# B Table
-https://stkblz.github.io/B-Table/
+# C Table
+https://stkblz.github.io/C-Table/
