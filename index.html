@@ -105,12 +105,12 @@
         function makeBMSTable(info, mark) {
             const $table = $("#table_int");
             $table.empty();
-
+        
             if (!info || !info.length) {
                 $table.html("<tbody><tr><td class='text-center p-3'>No charts found.</td></tr></tbody>");
                 return;
             }
-
+        
             // Group charts by level
             const groups = new Map();
             for (let i = 0; i < info.length; i++) {
@@ -121,7 +121,7 @@
                 }
                 groups.get(lvl).push(chart);
             }
-
+        
             let html = [];
             html.push("<thead class='table-dark'><tr>");
             html.push("<th style='width: 5%;'>Level</th>");
@@ -130,22 +130,23 @@
             html.push("<th style='width: 5%;'>Chart</th>");
             html.push("<th style='width: 15%;'>Comment</th>");
             html.push("</tr></thead>");
-
+        
             // Build level groups
             for (const [lvl, charts] of groups.entries()) {
-                html.push(`<tbody class="level-group" data-level="${escapeHtml(lvl)}">`);
+                // 'is-collapsed' added here so rows start hidden
+                html.push(`<tbody class="level-group is-collapsed" data-level="${escapeHtml(lvl)}">`);
                 
-                // Collapsible header row
+                // Collapsible header row with collapsed arrow (▶)
                 html.push(`
                     <tr class="table-dark level-header text-center">
                         <td colspan="5" class="py-1">
-                            <span class="toggle-icon">▼</span>
+                            <span class="toggle-icon">▶</span>
                             <strong>${escapeHtml(mark + lvl)}</strong>
                             <span class="badge bg-secondary ms-1 chart-count">${charts.length} Charts</span>
                         </td>
                     </tr>
                 `);
-
+        
                 // Chart rows
                 for (let i = 0; i < charts.length; i++) {
                     const item = charts[i];
@@ -154,9 +155,9 @@
                     const artist = escapeHtml(item.artist);
                     const comment = escapeHtml(item.comment || "");
                     const levelDisplay = escapeHtml(mark + lvl);
-
+        
                     const searchString = `${levelDisplay} ${item.title || ""} ${item.artist || ""} ${item.comment || ""}`.toLowerCase();
-
+        
                     html.push(`
                         <tr class="chart-row" data-search="${escapeHtml(searchString)}">
                             <td>${levelDisplay}</td>
@@ -170,9 +171,15 @@
                             <td>${comment}</td>
                         </tr>
                     `);
-                }
-                html.push("</tbody>");
             }
+        html.push("</tbody>");
+    }
+
+    // Single DOM write
+    $table.html(html.join(""));
+
+    initTableControls();
+}
 
             // Single DOM write
             $table.html(html.join(""));
