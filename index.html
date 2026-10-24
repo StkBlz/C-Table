@@ -7,12 +7,35 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="bmstable" content="header.json" />
+    
+    <!-- Dependencies -->
     <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous">
     </script>
+
+    <style>
+        .level-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        .level-header:hover {
+            filter: brightness(1.2);
+        }
+        .level-group.is-collapsed .chart-row {
+            display: none !important;
+        }
+        .chart-row.is-filtered-out {
+            display: none !important;
+        }
+        .toggle-icon {
+            display: inline-block;
+            width: 1.2rem;
+            font-size: 0.8rem;
+        }
+    </style>
 </head>
 
 <body>
@@ -25,89 +48,209 @@
     </header>
 
     <div class="container">
-
         <div class="alert alert-success mb-3" role="alert">
-            <p>Hey buddy, I think you've got the wrong door, the leather club's two blocks down.</p>
-            <p>Fuck↗You↘ Oh, Fuck♂You leather man. Maybe you and I should settle it right here on the ring if you think you're so tough.</p>
-            <p>Yeah right man. Let's go! Why don't you get out of that leather stuff?</p>
-            <p>I'll strip down out of this and we'll settle it right here in the ring.</p>
-            <p>What do you say? Yeah, no problem buddy! You got it. Get out of that uh, jabroni outfit.</p>
-            <p>Yeah, smart ass. I'll show you who's the boss of this gym.</p>
+            <p class="mb-0">Hey buddy, I think you've got the wrong door, the leather club's two blocks down.</p>
+            <p class="mb-0">Fuck↗You↘ Oh, Fuck♂You leather man. Maybe you and I should settle it right here on the ring if you think you're so tough.</p>
+            <p class="mb-0">Yeah right man. Let's go! Why don't you get out of that leather stuff?</p>
+            <p class="mb-0">I'll strip down out of this and we'll settle it right here in the ring.</p>
+            <p class="mb-0">What do you say? Yeah, no problem buddy! You got it. Get out of that uh, jabroni outfit.</p>
+            <p class="mb-0">Yeah, smart ass. I'll show you who's the boss of this gym.</p>
         </div>
 
-        <!--ここから難易度表本体-->
-        <div>
+        <!-- Search & Bulk Controls -->
+        <div class="row g-2 mb-3 align-items-center">
+            <div class="col">
+                <input type="text" id="chart_search" class="form-control form-control-sm" 
+                    placeholder="Search charts by title, artist, level, or comment...">
+            </div>
+            <div class="col-auto">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btn_collapse_all">Collapse All</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btn_expand_all">Expand All</button>
+            </div>
+        </div>
+
+        <!-- Chart Table -->
+        <div class="table-responsive">
             <table class="table table-light table-striped table-hover table-sm" id="table_int">
             </table>
         </div>
-        <script language="javascript" type="text/javascript">
-            $(document).ready(function () {
-                $.getJSON($("meta[name=bmstable]").attr("content"), function (header) {
+    </div>
+
+    <script type="text/javascript">
+        $(document).ready(function () {
+            const metaTag = $("meta[name=bmstable]");
+            if (metaTag.length) {
+                $.getJSON(metaTag.attr("content"), function (header) {
                     $.getJSON(header.data_url, function (information) {
-                        makeBMSTable(information, header.symbol);
+                        makeBMSTable(information, header.symbol || "");
+                    }).fail(function () {
+                        $("#table_int").html("<tbody><tr><td class='text-center text-danger p-3'>Failed to load chart data from " + escapeHtml(header.data_url) + "</td></tr></tbody>");
                     });
+                }).fail(function () {
+                    $("#table_int").html("<tbody><tr><td class='text-center text-danger p-3'>Failed to load header metadata.</td></tr></tbody>");
                 });
+            }
+        });
+
+        function escapeHtml(str) {
+            if (!str) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function makeBMSTable(info, mark) {
+            const $table = $("#table_int");
+            $table.empty();
+
+            if (!info || !info.length) {
+                $table.html("<tbody><tr><td class='text-center p-3'>No charts found.</td></tr></tbody>");
+                return;
+            }
+
+            // Group charts by level
+            const groups = new Map();
+            for (let i = 0; i < info.length; i++) {
+                const chart = info[i];
+                const lvl = chart.level !== undefined ? chart.level : "-";
+                if (!groups.has(lvl)) {
+                    groups.set(lvl, []);
+                }
+                groups.get(lvl).push(chart);
+            }
+
+            let html = [];
+            html.push("<thead class='table-dark'><tr>");
+            html.push("<th style='width: 5%;'>Level</th>");
+            html.push("<th style='width: 45%;'>Title</th>");
+            html.push("<th style='width: 30%;'>Artist</th>");
+            html.push("<th style='width: 5%;'>Chart</th>");
+            html.push("<th style='width: 15%;'>Comment</th>");
+            html.push("</tr></thead>");
+
+            // Build level groups
+            for (const [lvl, charts] of groups.entries()) {
+                html.push(`<tbody class="level-group" data-level="${escapeHtml(lvl)}">`);
+                
+                // Collapsible header row
+                html.push(`
+                    <tr class="table-dark level-header text-center">
+                        <td colspan="5" class="py-1">
+                            <span class="toggle-icon">▼</span>
+                            <strong>${escapeHtml(mark + lvl)}</strong>
+                            <span class="badge bg-secondary ms-1 chart-count">${charts.length} Charts</span>
+                        </td>
+                    </tr>
+                `);
+
+                // Chart rows
+                for (let i = 0; i < charts.length; i++) {
+                    const item = charts[i];
+                    const md5 = encodeURIComponent(item.md5 || "");
+                    const title = escapeHtml(item.title);
+                    const artist = escapeHtml(item.artist);
+                    const comment = escapeHtml(item.comment || "");
+                    const levelDisplay = escapeHtml(mark + lvl);
+
+                    const searchString = `${levelDisplay} ${item.title || ""} ${item.artist || ""} ${item.comment || ""}`.toLowerCase();
+
+                    html.push(`
+                        <tr class="chart-row" data-search="${escapeHtml(searchString)}">
+                            <td>${levelDisplay}</td>
+                            <td>
+                                <a href="http://www.dream-pro.info/~lavalse/LR2IR/search.cgi?mode=ranking&bmsmd5=${md5}" target="_blank" rel="noopener noreferrer">${title}</a>
+                            </td>
+                            <td>${artist}</td>
+                            <td>
+                                <a href="https://bms-score-viewer.pages.dev/view?md5=${md5}" target="_blank" rel="noopener noreferrer" class="badge bg-primary text-decoration-none">View</a>
+                            </td>
+                            <td>${comment}</td>
+                        </tr>
+                    `);
+                }
+                html.push("</tbody>");
+            }
+
+            // Single DOM write
+            $table.html(html.join(""));
+
+            initTableControls();
+        }
+
+        function initTableControls() {
+            // Toggle individual section
+            $(document).off("click", ".level-header").on("click", ".level-header", function () {
+                const $group = $(this).closest(".level-group");
+                const isCollapsed = $group.hasClass("is-collapsed");
+
+                if (isCollapsed) {
+                    $group.removeClass("is-collapsed");
+                    $(this).find(".toggle-icon").text("▼");
+                } else {
+                    $group.addClass("is-collapsed");
+                    $(this).find(".toggle-icon").text("▶");
+                }
             });
 
-            function makeBMSTable(info, mark) {
-                var x = "";
-                var ev = "";
-                var count = 0;
-                var obj = $("#table_int");
+            // Bulk expand / collapse
+            $("#btn_collapse_all").off("click").on("click", function () {
+                $(".level-group").addClass("is-collapsed").find(".toggle-icon").text("▶");
+            });
 
+            $("#btn_expand_all").off("click").on("click", function () {
+                $(".level-group").removeClass("is-collapsed").find(".toggle-icon").text("▼");
+            });
 
-                obj.html("");
-                $("<thead class='table-dark'><tr><th>Level</th><th>Title</th><th>Artist</th>><th>Chart</th><th>Comment</th></tr></thead><tbody>")
-                    .appendTo(obj);
-                var obj_sep = null;
-                
-                for (var i = 0; i < info.length; i++) {
-                    if (x != info[i].level) {
-                        if (obj_sep != null) {
-                            obj_sep.html("<td colspan='5'>" + "<b>" + mark + x + " (" + count +
-                                " Charts)</b></td>");
-                        }
-                        obj_sep = $("<tr class='table-dark' style='text-align:center' id='" + mark + info[i].level +
-                            "'></tr>");
-                        obj_sep.appendTo(obj);
-                        count = 0;
-                        x = info[i].level;
-                    }
-                    var str = $("<tr></tr>");
+            // Debounced search
+            let debounceTimer = null;
+            $("#chart_search").off("input").on("input", function () {
+                clearTimeout(debounceTimer);
+                const query = $(this).val().trim().toLowerCase();
+                debounceTimer = setTimeout(function () {
+                    filterBMSTable(query);
+                }, 120);
+            });
+        }
 
-
-                    // Level
-                    $("<td width='5%'>" + mark + x + "</td>").appendTo(str);
-
-                    // Title
-                    $("<td width='45%'>" +
-                        "<a href='http://www.dream-pro.info/~lavalse/LR2IR/search.cgi?mode=ranking&bmsmd5=" + info[
-                            i]
-                        .md5 + "' target='_blank'>" + info[i].title + "</a></td>").appendTo(str);
-
-                    // Artist
-                    $("<td width='35%'>" + info[i].artist + "</td>").appendTo(str);
-
-                    // Chartview
-                    $("<td width='5%'>" +
-                        "<a href='https://bms-score-viewer.pages.dev/view?md5=" + info[
-                            i]
-                        .md5 + "' target='_blank'>" + "View" + "</a></td>").appendTo(str);
-
-                    // Comment
-                    $("<td width='10%'>" + info[i].comment + "</td>").appendTo(str);
-                    str.appendTo(obj);
-                    count++;
-
-                }
-                $("</tbody>").appendTo(obj);
-
-                if (obj_sep != null) {
-                    obj_sep.html("<td class='table-dark' style='text-align:center' colspan='5'>" + "<b>" + mark + x +
-                        " (" + count + " Charts)</b></td>");
-                }
+        function filterBMSTable(query) {
+            if (!query) {
+                $(".level-group").show();
+                $(".chart-row").removeClass("is-filtered-out");
+                $(".level-group").each(function () {
+                    const total = $(this).find(".chart-row").length;
+                    $(this).find(".chart-count").text(`${total} Charts`);
+                });
+                return;
             }
-        </script>
-    </div>
+
+            $(".level-group").each(function () {
+                const $group = $(this);
+                const rows = $group.find(".chart-row").get();
+                let matches = 0;
+
+                for (let i = 0; i < rows.length; i++) {
+                    const searchIdx = rows[i].getAttribute("data-search") || "";
+                    if (searchIdx.indexOf(query) !== -1) {
+                        rows[i].classList.remove("is-filtered-out");
+                        matches++;
+                    } else {
+                        rows[i].classList.add("is-filtered-out");
+                    }
+                }
+
+                if (matches > 0) {
+                    $group.show();
+                    $group.removeClass("is-collapsed").find(".toggle-icon").text("▼");
+                    $group.find(".chart-count").text(`${matches} Matches`);
+                } else {
+                    $group.hide();
+                }
+            });
+        }
+    </script>
+</body>
 
 </html>
